@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>金声玉振 · 曾侯乙编钟</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <canvas id="stage"></canvas>
+
+  <!-- 载入 / 开场 -->
+  <div id="loader">
+    <div class="loader-inner">
+      <div class="seal">编<br />钟</div>
+      <h1 class="loader-title">金声玉振</h1>
+      <p class="loader-sub">曾侯乙编钟 · 三维复原演奏</p>
+      <div class="loader-bar"><i id="loader-fill"></i></div>
+      <p id="loader-text" class="loader-text">正在铸钟……</p>
+      <button id="enter-btn" class="enter-btn" hidden>入殿聆听</button>
+      <p class="loader-hint">建议佩戴耳机 · 声音为实时物理建模合成</p>
+    </div>
+  </div>
+
+  <!-- 标题 -->
+  <header id="brand">
+    <div class="seal small">金<br />声</div>
+    <div>
+      <h1>曾侯乙编钟</h1>
+      <p>战国早期 · 三层五十五钟 · 一钟双音</p>
+    </div>
+  </header>
+
+  <!-- 段落字幕 -->
+  <div id="caption"><span class="cap-song"></span><span class="cap-sec"></span></div>
+
+  <!-- 曲目 -->
+  <aside id="songs">
+    <h2>曲 目</h2>
+    <div id="song-list"></div>
+    <div class="free-play">
+      <h3>自由演奏</h3>
+      <p>点击钟体敲击：<b>钟口正中</b>为正鼓音，<b>偏向两侧</b>为侧鼓音。</p>
+      <p>键盘：<kbd>Z</kbd>–<kbd>M</kbd> 低音 · <kbd>A</kbd>–<kbd>J</kbd> 中音 · <kbd>Q</kbd>–<kbd>U</kbd> 高音（1=C 简谱 1–7），按住 <kbd>Shift</kbd> 升半音，<kbd>空格</kbd> 击建鼓。</p>
+    </div>
+  </aside>
+
+  <!-- 简谱卷轴 -->
+  <div id="score"><div id="score-track"></div><div class="score-head"></div></div>
+
+  <!-- 播放控制 -->
+  <footer id="transport">
+    <button id="btn-play" class="icon-btn" title="播放 / 暂停" disabled>
+      <svg viewBox="0 0 24 24" class="i-play"><path d="M8 5v14l11-7z"/></svg>
+      <svg viewBox="0 0 24 24" class="i-pause"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
+    </button>
+    <button id="btn-stop" class="icon-btn" title="停止" disabled>
+      <svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
+    </button>
+    <div class="now">
+      <div class="now-title" id="now-title">未选曲</div>
+      <div class="progress" id="progress"><div class="progress-fill" id="progress-fill"></div><div class="progress-marks" id="progress-marks"></div></div>
+    </div>
+    <div class="time" id="time">0:00 / 0:00</div>
+    <label class="slider">速<input id="rate" type="range" min="0.6" max="1.4" step="0.05" value="1" /><span id="rate-val">1.00×</span></label>
+    <label class="slider">音<input id="volume" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
+    <button id="btn-cam" class="toggle on" title="演奏时自动运镜">运镜</button>
+    <button id="btn-score" class="toggle on" title="显示简谱卷轴">乐谱</button>
+    <button id="btn-quality" class="toggle on" title="画质">高画质</button>
+  </footer>
+
+  <div id="tooltip"></div>
+</body>
+<script type="module" src="/src/main.js"></script>
+</html>
