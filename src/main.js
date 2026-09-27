@@ -5,14 +5,15 @@ import { Rack } from './scene/Rack.js';
 import { Effects } from './scene/Effects.js';
 import { Mallets } from './scene/Mallets.js';
 import { Drum } from './scene/Drum.js';
+import { Qing } from './scene/Qing.js';
 import {
   createBellFaceTextures, createBronzeTextures, createLacquerTexture, createFloorTextures,
-  createWallTexture, createLatticeTexture, createDrumSkinTexture, createGlowTexture,
+  createWallTexture, createLatticeTexture, createDrumSkinTexture, createGlowTexture, createStoneTextures,
 } from './scene/textures.js';
 import { AudioEngine } from './audio/AudioEngine.js';
 import { Player } from './music/Player.js';
 import { SONGS } from './music/songs.js';
-import { createBellSpecs, buildPitchMap } from './bells.js';
+import { createBellSpecs, buildPitchMap, createQingSpecs } from './bells.js';
 
 const $ = (id) => document.getElementById(id);
 const nextFrame = () => new Promise((r) => setTimeout(r, 16));
@@ -27,6 +28,7 @@ function progress(p, text) {
 
 const specs = createBellSpecs();
 const pitchMap = buildPitchMap(specs);
+const qingSpecs = createQingSpecs();
 const stage = new Stage($('stage'));
 const engine = new AudioEngine();
 
@@ -47,6 +49,7 @@ async function buildWorld() {
       tex.lattice = createLatticeTexture();
       tex.drumSkin = createDrumSkinTexture();
       tex.glow = createGlowTexture();
+      tex.stone = createStoneTextures();
     }],
   ];
   for (let i = 0; i < steps.length; i++) {
@@ -61,13 +64,16 @@ async function buildWorld() {
   const effects = new Effects(stage.scene, stage.camera);
   const mallets = new Mallets(stage.scene, rack, effects, tex);
   const drum = new Drum(stage.scene, tex, effects);
+  const qing = new Qing(stage.scene, qingSpecs, tex);
   mallets.drum = drum;
   stage.renderer.compile(stage.scene, stage.camera);
-  return { hall, rack, effects, mallets, drum };
+  return { hall, rack, effects, mallets, drum, qing };
 }
 
 const world = await buildWorld();
-const { hall, rack, effects, mallets, drum } = world;
+const { hall, rack, effects, mallets, drum, qing } = world;
+const pickables = [...rack.pickables, ...qing.pickables];
+if (import.meta.env.DEV) window.__bz = { stage, rack, qing, engine };
 
 const fitView = () => {
   const panel = document.getElementById('songs');
@@ -88,7 +94,7 @@ const camIntro = { t0: 0, from: new THREE.Vector3(0, 5.8, 31), to: new THREE.Vec
 stage.camera.position.copy(camIntro.from);
 
 const allMidis = specs.flatMap((s) => [s.main, s.side]);
-await engine.prepare(allMidis, (p, label) => {
+await engine.prepare(allMidis, qingSpecs.map((s) => s.midi), (p, label) => {
   const name = typeof label === 'number' ? `调律 · ${Math.round(p * 100)}%` : label;
   progress(0.4 + p * 0.6, `${name}……`);
 });
@@ -104,6 +110,18 @@ mallets.onHit = (bell) => {
   focusTarget.lerp(rack.center(bell), 0.12);
 };
 
+function strikeQing(stone, vel, when) {
+  engine.strikeQing(stone.spec.midi, vel, when, qing.pan());
+  mallets.scheduleCall(when, (vt) => {
+    qing.excite(stone, vel, vt);
+    const { p, n } = qing.strikePoint(stone);
+    const c = qing.center(stone);
+    effects.ripple(c, 0.12 + stone.spec.scale * 0.55, vel * 0.7, vt);
+    effects.sparks(p, n, vel * 0.5, 6);
+    focusTarget.lerp(c, 0.1);
+  });
+}
+
 function strikeBell(spec, tone, vel, when, immediate = false) {
   engine.strikeBell(spec, tone, vel, when, panOf(spec));
   mallets.schedule(rack.bells[spec.index], tone, vel, when, immediate);
@@ -112,6 +130,7 @@ function strikeBell(spec, tone, vel, when, immediate = false) {
 const player = new Player(engine, specs, pitchMap, {
   onBell: (spec, tone, vel, when) => strikeBell(spec, tone, vel, when),
   onDrum: (type, vel, when) => mallets.scheduleDrum(type, vel, when),
+  onQing: (midi, vel, when) => strikeQing(qing.pick(midi), vel, when),
   onCancel: () => mallets.cancelAfter(engine.now),
   onEnd: () => {
     setPlayingUI(false);
@@ -315,37 +334,48 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const tooltip = $('tooltip');
 let hovered = null;
-let hoverTone = 'main';
 let downPos = null;
 let lastInteract = -99;
 
 function pickAt(clientX, clientY) {
   pointer.set((clientX / window.innerWidth) * 2 - 1, -(clientY / window.innerHeight) * 2 + 1);
   raycaster.setFromCamera(pointer, stage.camera);
-  const hit = raycaster.intersectObjects(rack.pickables, false)[0];
+  const hit = raycaster.intersectObjects(pickables, false)[0];
   if (!hit) return null;
+  if (hit.object.userData.qing !== undefined) {
+    return { stone: qing.stones[hit.object.userData.qing], target: qing.stones[hit.object.userData.qing] };
+  }
   const bell = rack.bells[hit.object.userData.bell];
   const local = bell.holder.worldToLocal(hit.point.clone());
   const v = Math.min(1, Math.max(0, -local.y));
   const a = 0.228 + 0.09 * v;
   const tone = Math.abs(local.x) / a > 0.34 ? 'side' : 'main';
-  return { bell, tone, v };
+  return { bell, tone, v, target: bell };
+}
+
+function tooltipHTML(p) {
+  if (p.stone) {
+    const s = p.stone.spec;
+    return `<div class="tt-name">${s.title}</div>
+      <div class="tt-row"><span>编磬 · 石灰岩</span><b>${s.tier ? '上层' : '下层'}</b></div>
+      <div class="tt-row on"><span>磬音</span><b>${s.name}</b></div>`;
+  }
+  const s = p.bell.spec;
+  return `<div class="tt-name">${s.title}</div>
+    <div class="tt-row"><span>${s.tierLabel}</span><b>${s.type === 'yong' ? '甬钟' : '钮钟'}</b></div>
+    <div class="tt-row ${p.tone === 'main' ? 'on' : ''}"><span>正鼓音</span><b>${s.mainName}</b></div>
+    <div class="tt-row ${p.tone === 'side' ? 'on' : ''}"><span>侧鼓音</span><b>${s.sideName}</b></div>`;
 }
 
 const canvas = $('stage');
 canvas.addEventListener('pointermove', (e) => {
   if (!started) return;
   const p = pickAt(e.clientX, e.clientY);
-  if (hovered && (!p || p.bell !== hovered)) hovered.hover = 0;
-  hovered = p?.bell ?? null;
+  if (hovered && (!p || p.target !== hovered)) hovered.hover = 0;
+  hovered = p?.target ?? null;
   if (p) {
-    p.bell.hover = 1;
-    hoverTone = p.tone;
-    const s = p.bell.spec;
-    tooltip.innerHTML = `<div class="tt-name">${s.title}</div>
-      <div class="tt-row"><span>${s.tierLabel}</span><b>${s.type === 'yong' ? '甬钟' : '钮钟'}</b></div>
-      <div class="tt-row ${p.tone === 'main' ? 'on' : ''}"><span>正鼓音</span><b>${s.mainName}</b></div>
-      <div class="tt-row ${p.tone === 'side' ? 'on' : ''}"><span>侧鼓音</span><b>${s.sideName}</b></div>`;
+    p.target.hover = 1;
+    tooltip.innerHTML = tooltipHTML(p);
     tooltip.style.left = `${e.clientX}px`;
     tooltip.style.top = `${e.clientY}px`;
     tooltip.classList.add('show');
@@ -372,6 +402,10 @@ canvas.addEventListener('pointerup', (e) => {
   if (moved > 6) return;
   const p = pickAt(e.clientX, e.clientY);
   if (!p) return;
+  if (p.stone) {
+    strikeQing(p.stone, 0.8, engine.now);
+    return;
+  }
   // 击点越靠下（鼓部）越响
   const vel = 0.55 + 0.4 * Math.min(1, Math.max(0, (p.v - 0.3) / 0.6));
   strikeBell(p.bell.spec, p.tone, vel, engine.now, true);
@@ -388,6 +422,12 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     engine.strikeDrum('D', 0.85);
     mallets.scheduleDrum('D', 0.85, engine.now);
+    return;
+  }
+  // 数字键 1–7：编磬（1 = C5）
+  const digit = /^Digit([1-7])$/.exec(e.code);
+  if (digit) {
+    strikeQing(qing.pick(72 + MAJOR[Number(digit[1]) - 1] + (e.shiftKey ? 1 : 0)), 0.8, engine.now);
     return;
   }
   const km = KEYMAP[e.key.toLowerCase()];
@@ -427,6 +467,7 @@ function frame() {
   rack.update(vt, dt);
   effects.update(vt, dt);
   drum.update(vt);
+  qing.update(vt, dt);
   hall.update(tNow);
 
   // 开场运镜

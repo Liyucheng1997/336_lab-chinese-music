@@ -59,3 +59,23 @@ export function buildPitchMap(specs) {
   });
   return map;
 }
+
+// 编磬：两层二十四磬，半音排列（C4–B5）
+export const QING_RANGE = { start: 60, count: 24 };
+
+export function createQingSpecs() {
+  const out = [];
+  for (let i = 0; i < QING_RANGE.count; i++) {
+    const midi = QING_RANGE.start + i;
+    out.push({
+      index: i,
+      midi,
+      tier: i < 12 ? 0 : 1,
+      indexInTier: i % 12,
+      scale: 0.64 * Math.pow(2, (-(midi - 60) / 12) * 0.5),
+      name: `${zengName(midi)} · ${midiName(midi)}`,
+      title: `${i < 12 ? '下' : '上'}层第${(i % 12) + 1}磬`,
+    });
+  }
+  return out;
+}

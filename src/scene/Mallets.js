@@ -101,6 +101,11 @@ export class Mallets {
     this.pending.push({ drum: type, vel, when, started: true, hit: false });
   }
 
+  // 在音频时钟到达 when 时执行视觉回调（编磬等）
+  scheduleCall(when, fn) {
+    this.pending.push({ call: fn, when, started: true, hit: false });
+  }
+
   cancelAfter(t) {
     this.pending = this.pending.filter((e) => e.when <= t + 0.01);
   }
@@ -116,9 +121,11 @@ export class Mallets {
   update(vt) {
     const keep = [];
     for (const e of this.pending) {
-      if (e.drum) {
-        if (vt >= e.when) this.drum?.hit(e.drum, e.vel, vt);
-        else keep.push(e);
+      if (e.drum || e.call) {
+        if (vt >= e.when) {
+          if (e.drum) this.drum?.hit(e.drum, e.vel, vt);
+          else e.call(vt);
+        } else keep.push(e);
         continue;
       }
       if (!e.started && vt >= e.when - APPROACH) {

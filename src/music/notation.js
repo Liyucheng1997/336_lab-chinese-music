@@ -162,6 +162,7 @@ export function compileSong(song) {
 
     for (const p of parsed) {
       for (const ev of p.events) {
+        if (ev.track === 'q' && ev.kind === 'bell') ev.kind = 'qing';
         const start = t0 + toSec(ev.beat) + ev.offset;
         const end = t0 + toSec(ev.beat + ev.dur) + ev.offset;
         if (ev.kind === 'drum' && ev.drum === 'R') {

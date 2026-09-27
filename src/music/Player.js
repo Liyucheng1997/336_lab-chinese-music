@@ -112,6 +112,8 @@ export class Player {
       if (e.kind === 'drum') {
         this.engine.strikeDrum(e.drum, e.vel, when);
         this.h.onDrum?.(e.drum, e.vel, when);
+      } else if (e.kind === 'qing') {
+        this.h.onQing?.(e.midi, e.vel, when);
       } else {
         const pick = this.pickBell(e.midi, when);
         if (pick) this.h.onBell(pick.spec, pick.tone, e.vel, when);

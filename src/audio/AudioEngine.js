@@ -1,5 +1,5 @@
 // 音频引擎：预渲染钟声样本、立体声定位、殿堂混响、动态处理
-import { renderBellTone, renderDrum } from './synth.js';
+import { renderBellTone, renderDrum, renderQing } from './synth.js';
 import { midiToFreq } from '../music/theory.js';
 
 const MAX_VOICES = 110;
@@ -9,6 +9,7 @@ export class AudioEngine {
     const AC = window.AudioContext || window.webkitAudioContext;
     this.ctx = new AC({ latencyHint: 'interactive' });
     this.buffers = new Map();
+    this.qingBuffers = new Map();
     this.drums = {};
     this.voices = [];
     this.byBell = new Map();
@@ -56,10 +57,10 @@ export class AudioEngine {
   }
 
   // 预渲染：钟声样本 + 鼓 + 混响脉冲响应
-  async prepare(midis, onProgress) {
+  async prepare(midis, qingMidis, onProgress) {
     const sr = this.ctx.sampleRate;
     const list = [...new Set(midis)].sort((a, b) => a - b);
-    const total = list.length + 5;
+    const total = list.length + qingMidis.length + 5;
     let done = 0;
     const tick = async (label) => {
       done++;
@@ -76,6 +77,10 @@ export class AudioEngine {
     }
     for (const m of list) {
       this.buffers.set(m, this.#toBuffer(renderBellTone(midiToFreq(m), sr, m * 131 + 7)));
+      await tick(m);
+    }
+    for (const m of qingMidis) {
+      this.qingBuffers.set(m, this.#toBuffer(renderQing(midiToFreq(m), sr, m * 71 + 3)));
       await tick(m);
     }
   }
@@ -192,6 +197,30 @@ export class AudioEngine {
     src.start(when);
 
     const voice = { src, src2, gain: out, level, start: when, end: when + buf.duration, bell: spec.index, nodes: [lp, out, p] };
+    this.#track(voice);
+    src.onended = () => this.#release(voice);
+  }
+
+  // 击磬
+  strikeQing(midi, vel, when = this.ctx.currentTime, pan = 0.6) {
+    const c = this.ctx;
+    const buf = this.qingBuffers.get(midi);
+    if (!buf) return;
+    when = Math.max(when, c.currentTime);
+    const g = c.createGain();
+    g.gain.value = Math.min(1.1, vel * 0.8 * Math.pow(midiToFreq(midi) / 262, -0.1));
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 2500 + 15000 * Math.pow(vel, 1.5);
+    const p = c.createStereoPanner();
+    p.pan.value = pan;
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    src.connect(lp).connect(g).connect(p);
+    p.connect(this.input);
+    p.connect(this.send);
+    src.start(when);
+    const voice = { src, gain: g, level: vel, start: when, end: when + buf.duration, bell: -1, nodes: [lp, g, p] };
     this.#track(voice);
     src.onended = () => this.#release(voice);
   }

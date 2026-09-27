@@ -164,3 +164,31 @@ function normalize(out, target) {
   for (let i = 0; i < out.length; i++) out[i] *= k;
   return out;
 }
+
+// 石磬：石灰岩板的弯曲振动模态，比铜钟更清亮、衰减更快
+const QING_PARTIALS = [
+  [1.0, 1.0, 1.0],
+  [1.0041, 0.22, 0.95],
+  [2.76, 0.42, 0.45],
+  [2.79, 0.12, 0.42],
+  [5.4, 0.2, 0.26],
+  [8.93, 0.09, 0.15],
+  [13.3, 0.04, 0.09],
+];
+
+export function renderQing(freq, sr, seed = 5) {
+  const rnd = mulberry(seed);
+  const T = Math.min(3.4, Math.max(1.1, 3.4 * Math.pow(freq / 262, -0.45)));
+  const out = new Float32Array(Math.floor(Math.min(T * 1.02, 3.6) * sr));
+  for (const [ratio, amp, dk] of QING_PARTIALS) {
+    addMode(out, sr, freq * ratio * (1 + (rnd() - 0.5) * 0.002), amp, T * dk, rnd() * 6.28, 0.25, 7);
+  }
+  // 木槌击石的清脆“嗒”声
+  addNoiseBurst(out, sr, rnd, Math.min(freq * 4.5, 5200), 1800, 0.55, 0.004);
+  addNoiseBurst(out, sr, rnd, 900, 600, 0.2, 0.01);
+  const att = Math.floor(sr * 0.0015);
+  for (let i = 0; i < att; i++) out[i] *= i / att;
+  const fade = Math.floor(sr * 0.2);
+  for (let i = 0; i < fade; i++) out[out.length - 1 - i] *= i / fade;
+  return normalize(out, 0.85);
+}

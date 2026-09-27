@@ -222,7 +222,7 @@ export class Hall {
       metalness: 1, roughness: 1, envMapIntensity: 1.1,
     });
     this.flames = [];
-    [[-9.3, 4.4], [8.6, 3.8]].forEach(([x, z], i) => {
+    [[-6.9, 4.7], [6.6, 4.7]].forEach(([x, z], i) => {
       const g = new THREE.Group();
       const prof = [
         [0, 0], [0.42, 0], [0.44, 0.05], [0.3, 0.1], [0.2, 0.16], [0.08, 0.3], [0.06, 0.5], [0.07, 0.55],

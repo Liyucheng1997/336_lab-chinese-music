@@ -677,3 +677,38 @@ export function createGlowTexture() {
   x.fillRect(0, 0, S, S);
   return toTexture(c);
 }
+
+// 石磬：青灰色石灰岩，带细密纹理与淡色石脉
+export function createStoneTextures() {
+  const S = 512;
+  const noise = new ValueNoise(131);
+  const col = new Uint8ClampedArray(S * S * 4);
+  const rough = new Uint8ClampedArray(S * S * 4);
+  const bump = new Uint8ClampedArray(S * S * 4);
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const j = (y * S + x) * 4;
+      const u = x / S;
+      const v = y / S;
+      const n = noise.fbm(u, v, 4, 5);
+      const g = noise.fbm(u, v, 64, 2);
+      const vein = smoothstep(0.025, 0.0, Math.abs(noise.fbm(u, v * 0.6, 3, 4) - 0.5));
+      const base = 70 + n * 40 + g * 14;
+      col[j] = base * 0.86 + vein * 40;
+      col[j + 1] = base * 0.98 + vein * 42;
+      col[j + 2] = base * 0.94 + vein * 38;
+      col[j + 3] = 255;
+      rough[j] = 255;
+      rough[j + 1] = (0.42 + g * 0.2 - vein * 0.15) * 255;
+      rough[j + 2] = 0;
+      rough[j + 3] = 255;
+      bump[j] = bump[j + 1] = bump[j + 2] = (0.5 + (g - 0.5) * 0.3 + (n - 0.5) * 0.2) * 255;
+      bump[j + 3] = 255;
+    }
+  }
+  return {
+    map: toTexture(imageToCanvas(col, S, S), { srgb: true, repeat: true }),
+    roughnessMap: toTexture(imageToCanvas(rough, S, S), { repeat: true }),
+    bumpMap: toTexture(imageToCanvas(bump, S, S), { repeat: true }),
+  };
+}

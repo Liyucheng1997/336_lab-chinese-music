@@ -1,7 +1,9 @@
 // 内置曲目（编钟改编版，简谱记写，1 = D）
 // 轨道：m 旋律（显示于乐谱卷轴） h 和声 / 泛音  b 低音大钟  d 建鼓
 
-export const SONGS = [
+import { MORE_SONGS } from './songs-more.js';
+
+const CLASSIC = [
   // ────────────────────────────────────────────── 秦王破阵乐
   {
     id: 'qinwang',
@@ -250,3 +252,5 @@ export const SONGS = [
     ],
   },
 ];
+
+export const SONGS = [...CLASSIC, ...MORE_SONGS];
