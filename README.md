@@ -2,6 +2,8 @@
 
 以曾侯乙编钟为原型的三维演奏系统：三层钟架、五十五钟、一钟双音，内置《秦王破阵乐》《十面埋伏》《高山流水》。
 
+**在线体验：** https://liyucheng1997.github.io/336_lab-chinese-music/ （建议电脑端 Chrome / Edge，佩戴耳机）
+
 ## 运行
 
 ```bash
